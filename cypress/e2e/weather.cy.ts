@@ -11,9 +11,11 @@ describe('Weather App', () => {
      .should('exist')
      .then((descriptionElement) => {
       const descriptionText = descriptionElement.text().toLowerCase();
-      if (descriptionText.includes('clear') || descriptionText.includes('sunny')) {
+      if (descriptionText.includes('clear') || descriptionText.includes('sunny')|| descriptionText.includes('Sunny')) {
         // Check if the sunny icon is displayed (replace with correct selector for your icon)
-        cy.get('svg[aria-label="Day Sunny"]').should('exist');
+        cy.get('svg[aria-label]')
+  .should('have.attr', 'aria-label')
+  .and('include', 'Sunny').should('exist');
       } else if (descriptionText.includes('cloudy')) {
         // Check if the cloudy icon is displayed (replace with correct selector for your icon)
         cy.get('svg[aria-label="Cloudy"]').should('exist');

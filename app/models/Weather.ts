@@ -1,5 +1,5 @@
 // Define a class for the forecast entries
-class Forecast {
+ export class Forecast {
     day: string;
     temperature: string;
     wind: string;
@@ -12,7 +12,7 @@ class Forecast {
   }
   
   // Define the main weather class
-  class Weather {
+  export default  class Weather {
     temperature: string;
     wind: string;
     description: string;
@@ -30,15 +30,28 @@ class Forecast {
       this.forecast = forecast;
     }
   
-    static fromJSON(json: any): Weather {
+    static fromJSON(json: WeatherJSON): Weather {
       return new Weather(
         json.temperature,
         json.wind,
         json.description,
         json.forecast.map(
-          (f: any) => new Forecast(f.day, f.temperature, f.wind)
+          (f: ForecastJSON) => new Forecast(f.day, f.temperature, f.wind)
         )
       );
     }
   }
+
+  type ForecastJSON = {
+    day: string;
+    temperature: string;
+    wind: string;
+  };
+  
+  type WeatherJSON = {
+    temperature: string;
+    wind: string;
+    description: string;
+    forecast: ForecastJSON[];
+  };
   

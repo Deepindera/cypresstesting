@@ -38,3 +38,9 @@ yarn-error.log*
 # typescript
 *.tsbuildinfo
 next-env.d.ts
+
+# Do not ignore cypress folder
+!cypress/
+
+# Do not ignore .dockerignore
+!.dockerignore

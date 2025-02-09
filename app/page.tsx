@@ -1,8 +1,10 @@
 import { WiDaySunny, WiCloudy, WiRain } from "react-icons/wi";
+import Weather, {Forecast} from './models/Weather';
+import '../build.css';
 
 export default async function Home() {
   // Dummy data to use when the API fails or doesn't return data
-  const dummyData = {
+  const dummyData:Weather = {
     temperature: "23",
     wind: "6",
     description: "rain",
@@ -13,7 +15,7 @@ export default async function Home() {
     ],
   };
 
-  let weather;
+  let weather:Weather;
   const city = "Melbourne";
   const res = await fetch("https://goweather.herokuapp.com/weather/" + city, {
     cache: "force-cache", // Use "force-cache" for caching or "no-store" for fresh data
