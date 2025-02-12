@@ -49,26 +49,33 @@ jobs:
       run: |
         aws ecr get-login-password --region ap-southeast-2 | docker login --username AWS --password-stdin 503561410165.dkr.ecr.ap-southeast-2.amazonaws.com
 
+    # Generate a unique tag
+    - name: Generate a unique tag based on timestamp
+      run: |
+        TAG=$(date +'%Y%m%d%H%M%S')  # Generate a unique tag based on timestamp
+        echo "Generated tag: $TAG"
+        echo "TAG=$TAG" >> $GITHUB_ENV
+
     # Tag the Docker image (Ensure it's built before this)
     - name: Tag Docker image
       run: |
-        TAG=$(date +'%Y%m%d%H%M%S')  # Generate a unique tag based on timestamp
-        docker tag weatherapp:latest 503561410165.dkr.ecr.ap-southeast-2.amazonaws.com/weatherapp:$TAG
-        echo "Pushed tag: $TAG"
+        docker tag weatherapp:latest 503561410165.dkr.ecr.ap-southeast-2.amazonaws.com/weatherapp:${{ env.TAG }}
+        echo "Tagged image with: ${{ env.TAG }}"
 
     # Push the Docker image to ECR
     - name: Push Docker image to ECR
       run: |
-        docker push 503561410165.dkr.ecr.ap-southeast-2.amazonaws.com/weatherapp:$TAG
+        docker push 503561410165.dkr.ecr.ap-southeast-2.amazonaws.com/weatherapp:${{ env.TAG }}
+        echo "Pushed image with tag: ${{ env.TAG }}"
 
     # Deploy to EC2
     - name: Deploy to EC2
       run: |
         ssh -i /path/to/your/private-key.pem ec2-user@<your-ec2-public-ip> <<EOF
-          docker pull 503561410165.dkr.ecr.ap-southeast-2.amazonaws.com/weatherapp:$TAG
+          docker pull 503561410165.dkr.ecr.ap-southeast-2.amazonaws.com/weatherapp:${{ env.TAG }}
           docker stop weatherapp-container || true
           docker rm weatherapp-container || true
-          docker run -d --name weatherapp-container -p 3000:3000 503561410165.dkr.ecr.ap-southeast-2.amazonaws.com/weatherapp:$TAG
+          docker run -d --name weatherapp-container -p 3000:3000 503561410165.dkr.ecr.ap-southeast-2.amazonaws.com/weatherapp:${{ env.TAG }}
         EOF
 
   notify_on_failure:
@@ -87,6 +94,3 @@ jobs:
         to: your-email@example.com
         subject: "Build Failed: Test Run for Build ID ${{ github.run_id }}"
         body: "The Cypress tests for Build ID ${{ github.run_id }} have failed. Please check the logs for more details."
-
-
-        
