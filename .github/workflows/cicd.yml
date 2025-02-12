@@ -13,19 +13,19 @@ jobs:
     - name: Checkout the repository
       uses: actions/checkout@v2
 
-    # Set up Node.js
-    - name: Set up Node.js
-      uses: actions/setup-node@v2
-      with:
-        node-version: '20'  # Use the version of Node.js you're using in your Dockerfile
+    # Set up Docker and AWS CLI
+    - name: Set up Docker
+      uses: docker/setup-buildx-action@v2
 
-    # Install dependencies
-    - name: Install dependencies
-      run: npm install --legacy-peer-deps
+    # Build the Docker image
+    - name: Build Docker image
+      run: |
+        docker build -t weatherapp .
 
-    # Run the Cypress tests
-    - name: Run Cypress tests
-      run: npm run cypress:run  # Make sure you have this script in package.json
+    # Run the container and execute the start.sh script (which includes Cypress tests)
+    - name: Run the Docker container and execute start.sh
+      run: |
+        docker run --rm weatherapp /bin/bash -c "/app/start.sh"  # Running your full start.sh script
 
   deploy:
     needs: build_and_test
@@ -36,10 +36,7 @@ jobs:
     - name: Checkout the repository
       uses: actions/checkout@v2
 
-    # Set up Docker and AWS CLI
-    - name: Set up Docker
-      uses: docker/setup-buildx-action@v2
-
+    # Set up AWS CLI
     - name: Set up AWS CLI
       uses: aws-actions/configure-aws-credentials@v1
       with:
@@ -47,17 +44,12 @@ jobs:
         aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
         aws-region: 'ap-southeast-2'  # AWS region for your ECR
 
-    # Build the Docker image
-    - name: Build Docker image
-      run: |
-        docker build -t weatherapp .
-
     # Authenticate to AWS ECR
     - name: Login to Amazon ECR
       run: |
         aws ecr get-login-password --region ap-southeast-2 | docker login --username AWS --password-stdin 503561410165.dkr.ecr.ap-southeast-2.amazonaws.com
 
-    # Tag and Push the Docker image to ECR
+    # Tag and push the Docker image to ECR
     - name: Tag and Push Docker image to ECR
       run: |
         docker tag weatherapp:latest 503561410165.dkr.ecr.ap-southeast-2.amazonaws.com/weatherapp:latest
@@ -66,7 +58,7 @@ jobs:
     # Deploy to EC2
     - name: Deploy to EC2
       run: |
-        ssh -i ${{ secrets.EC2_SSH_PRIVATE_KEY }} ec2-user@172.31.4.195 <<EOF
+        ssh -i /path/to/your/private-key.pem ec2-user@<your-ec2-public-ip> <<EOF
           docker pull 503561410165.dkr.ecr.ap-southeast-2.amazonaws.com/weatherapp:latest
           docker stop weatherapp-container || true
           docker rm weatherapp-container || true
