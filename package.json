@@ -1,5 +1,5 @@
 {
-  "name": "nextjsweatherwithcypress",
+  "name": "weatherapp",
   "version": "0.1.0",
   "private": true,
   "scripts": {
@@ -13,7 +13,7 @@
     "class-variance-authority": "^0.7.0",
     "clsx": "^2.1.1",
     "lucide-react": "^0.460.0",
-    "next": "15.0.3",
+    "next": "^15.1.7",
     "react": "^18.3.1",
     "react-dom": "^18.3.1",
     "react-icons": "^5.3.0",
@@ -23,16 +23,16 @@
   "devDependencies": {
     "@types/cypress": "^0.1.6",
     "@types/mocha": "^10.0.10",
-    "@types/node": "^20.17.11",
+    "@types/node": "20.17.17",
     "@types/react": "^18",
     "@types/react-dom": "^18",
     "autoprefixer": "^10.4.20",
-    "cypress": "^13.17.0",
-    "eslint": "^8",
+    "cypress": "^14.0.0",
+    "eslint": "^8.57.1",
     "eslint-config-next": "15.0.3",
     "postcss": "^8.4.49",
     "tailwindcss": "^3.4.16",
-    "typescript": "^5.7.2",
+    "typescript": "^5.7.3",
     "wait-on": "^8.0.1"
   }
 }

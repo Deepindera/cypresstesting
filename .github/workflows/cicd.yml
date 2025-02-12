@@ -1,0 +1,91 @@
+name: Build, Test, and Deploy to EC2
+
+on:
+  push:
+    branches:
+      - main  # Trigger only when pushing to the main branch
+
+jobs:
+  build_and_test:
+    runs-on: ubuntu-latest
+    
+    steps:
+    - name: Checkout the repository
+      uses: actions/checkout@v2
+
+    # Set up Node.js
+    - name: Set up Node.js
+      uses: actions/setup-node@v2
+      with:
+        node-version: '20'  # Use the version of Node.js you're using in your Dockerfile
+
+    # Install dependencies
+    - name: Install dependencies
+      run: npm install --legacy-peer-deps
+
+    # Run the Cypress tests
+    - name: Run Cypress tests
+      run: npm run cypress:run  # Make sure you have this script in package.json
+
+  deploy:
+    needs: build_and_test
+    runs-on: ubuntu-latest
+    if: success()  # Only run if the build_and_test job is successful
+
+    steps:
+    - name: Checkout the repository
+      uses: actions/checkout@v2
+
+    # Set up Docker and AWS CLI
+    - name: Set up Docker
+      uses: docker/setup-buildx-action@v2
+
+    - name: Set up AWS CLI
+      uses: aws-actions/configure-aws-credentials@v1
+      with:
+        aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+        aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+        aws-region: 'ap-southeast-2'  # AWS region for your ECR
+
+    # Build the Docker image
+    - name: Build Docker image
+      run: |
+        docker build -t weatherapp .
+
+    # Authenticate to AWS ECR
+    - name: Login to Amazon ECR
+      run: |
+        aws ecr get-login-password --region ap-southeast-2 | docker login --username AWS --password-stdin 503561410165.dkr.ecr.ap-southeast-2.amazonaws.com
+
+    # Tag and Push the Docker image to ECR
+    - name: Tag and Push Docker image to ECR
+      run: |
+        docker tag weatherapp:latest 503561410165.dkr.ecr.ap-southeast-2.amazonaws.com/weatherapp:latest
+        docker push 503561410165.dkr.ecr.ap-southeast-2.amazonaws.com/weatherapp:latest
+
+    # Deploy to EC2
+    - name: Deploy to EC2
+      run: |
+        ssh -i ${{ secrets.EC2_SSH_PRIVATE_KEY }} ec2-user@172.31.4.195 <<EOF
+          docker pull 503561410165.dkr.ecr.ap-southeast-2.amazonaws.com/weatherapp:latest
+          docker stop weatherapp-container || true
+          docker rm weatherapp-container || true
+          docker run -d --name weatherapp-container -p 3000:3000 503561410165.dkr.ecr.ap-southeast-2.amazonaws.com/weatherapp:latest
+        EOF
+
+  notify_on_failure:
+    if: failure()  # This job runs only if the previous jobs fail
+    runs-on: ubuntu-latest
+
+    steps:
+    - name: Send failure email notification
+      uses: dawidd6/action-send-mail@v3
+      with:
+        smtp-server: smtp.gmail.com
+        smtp-port: 587
+        smtp-username: ${{ secrets.GMAIL_USERNAME }}
+        smtp-password: ${{ secrets.GMAIL_PASSWORD }}
+        from: ${{ secrets.GMAIL_USERNAME }}
+        to: your-email@example.com
+        subject: "Build Failed: Test Run for Build ID ${{ github.run_id }}"
+        body: "The Cypress tests for Build ID ${{ github.run_id }} have failed. Please check the logs for more details."
