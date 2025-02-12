@@ -13,16 +13,16 @@ jobs:
     - name: Checkout the repository
       uses: actions/checkout@v2
 
-    # Set up Docker and AWS CLI
+    # Set up Docker
     - name: Set up Docker
       uses: docker/setup-buildx-action@v2
 
-    # Build the Docker image
+    # Build the Docker image (Ensure it's named correctly)
     - name: Build Docker image
       run: |
-        docker build -t weatherapp .
+        docker build -t weatherapp .  # Builds the Docker image
 
-    # Run the container and execute the start.sh script (which includes Cypress tests)
+    # Run the container and execute start.sh (runs the tests as well)
     - name: Run the Docker container and execute start.sh
       run: |
         docker run --rm weatherapp /bin/bash -c "/app/start.sh"  # Running your full start.sh script
@@ -49,20 +49,26 @@ jobs:
       run: |
         aws ecr get-login-password --region ap-southeast-2 | docker login --username AWS --password-stdin 503561410165.dkr.ecr.ap-southeast-2.amazonaws.com
 
-    # Tag and push the Docker image to ECR
-    - name: Tag and Push Docker image to ECR
+    # Tag the Docker image (Ensure it's built before this)
+    - name: Tag Docker image
       run: |
-        docker tag weatherapp:latest 503561410165.dkr.ecr.ap-southeast-2.amazonaws.com/weatherapp:latest
-        docker push 503561410165.dkr.ecr.ap-southeast-2.amazonaws.com/weatherapp:latest
+        TAG=$(date +'%Y%m%d%H%M%S')  # Generate a unique tag based on timestamp
+        docker tag weatherapp:latest 503561410165.dkr.ecr.ap-southeast-2.amazonaws.com/weatherapp:$TAG
+        echo "Pushed tag: $TAG"
+
+    # Push the Docker image to ECR
+    - name: Push Docker image to ECR
+      run: |
+        docker push 503561410165.dkr.ecr.ap-southeast-2.amazonaws.com/weatherapp:$TAG
 
     # Deploy to EC2
     - name: Deploy to EC2
       run: |
         ssh -i /path/to/your/private-key.pem ec2-user@<your-ec2-public-ip> <<EOF
-          docker pull 503561410165.dkr.ecr.ap-southeast-2.amazonaws.com/weatherapp:latest
+          docker pull 503561410165.dkr.ecr.ap-southeast-2.amazonaws.com/weatherapp:$TAG
           docker stop weatherapp-container || true
           docker rm weatherapp-container || true
-          docker run -d --name weatherapp-container -p 3000:3000 503561410165.dkr.ecr.ap-southeast-2.amazonaws.com/weatherapp:latest
+          docker run -d --name weatherapp-container -p 3000:3000 503561410165.dkr.ecr.ap-southeast-2.amazonaws.com/weatherapp:$TAG
         EOF
 
   notify_on_failure:
@@ -81,3 +87,6 @@ jobs:
         to: your-email@example.com
         subject: "Build Failed: Test Run for Build ID ${{ github.run_id }}"
         body: "The Cypress tests for Build ID ${{ github.run_id }} have failed. Please check the logs for more details."
+
+
+        
