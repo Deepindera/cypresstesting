@@ -17,11 +17,18 @@ jobs:
     - name: Set up Docker
       uses: docker/setup-buildx-action@v2
 
-    # Build the Docker image (Ensure it's named correctly)
+    # Generate a unique tag based on timestamp for the new image version
+    - name: Generate a unique tag based on timestamp
+      run: |
+        TAG=$(date +'%Y%m%d%H%M%S')  # Generate a unique tag based on timestamp
+        echo "Generated tag: $TAG"
+        echo "TAG=$TAG" >> $GITHUB_ENV  # Store the tag for later use in the workflow
+
+    # Build the Docker image (Ensure it's tagged correctly)
     - name: Build Docker image
       run: |
         docker build -t weatherapp:${{ env.TAG }} .  # Build the image with the dynamic tag
-        docker images  # Debugging: List the built Docker images to check if weatherapp exists
+        docker images  # List Docker images to check if weatherapp exists
 
     # Run the container and execute start.sh (runs the tests as well)
     - name: Run the Docker container and execute start.sh
@@ -50,13 +57,6 @@ jobs:
       run: |
         aws ecr get-login-password --region ap-southeast-2 | docker login --username AWS --password-stdin 503561410165.dkr.ecr.ap-southeast-2.amazonaws.com
 
-    # Generate a unique tag based on timestamp for the new image version
-    - name: Generate a unique tag based on timestamp
-      run: |
-        TAG=$(date +'%Y%m%d%H%M%S')  # Generate a unique tag based on timestamp
-        echo "Generated tag: $TAG"
-        echo "TAG=$TAG" >> $GITHUB_ENV  # Store the tag for later use in the workflow
-
     # Debugging: Check the images before tagging (this will confirm if weatherapp exists)
     - name: Verify Docker images before tagging
       run: |
@@ -84,11 +84,11 @@ jobs:
           docker run -d --name weatherapp-container -p 3000:3000 503561410165.dkr.ecr.ap-southeast-2.amazonaws.com/weatherapp:${{ env.TAG }}
         EOF
 
-      
   notify_on_failure:
     if: failure()  # This job runs only if the previous jobs fail
     runs-on: ubuntu-latest
 
+    
     steps:
     - name: Send failure email notification
       uses: dawidd6/action-send-mail@v3
