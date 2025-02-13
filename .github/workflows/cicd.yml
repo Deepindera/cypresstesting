@@ -12,31 +12,42 @@ jobs:
       tag: ${{ steps.Generate_tag_based_on_timestamp.outputs.TAG }}  # Output the generated tag for later use
 
     steps:
-    - name: Checkout the repository
-      uses: actions/checkout@v2
+      - name: Checkout the repository
+        uses: actions/checkout@v2
 
-    # Set up Docker
-    - name: Set up Docker
-      uses: docker/setup-buildx-action@v2
+      # Set up Docker
+      - name: Set up Docker
+        uses: docker/setup-buildx-action@v2
 
-    # Generate a unique tag based on timestamp for the new image version
-    - name: Generate tag based on timestamp
-      id: Generate_tag_based_on_timestamp
-      run: |
-        TAG=$(date +'%Y%m%d%H%M%S')  # Generate a unique tag based on timestamp
-        echo "Generated tag: $TAG"
-        echo "TAG=$TAG" >> $GITHUB_OUTPUT  # Output the tag so it can be used in other jobs
+      # Generate a unique tag based on timestamp for the new image version
+      - name: Generate tag based on timestamp
+        id: Generate_tag_based_on_timestamp
+        run: |
+          TAG=$(date +'%Y%m%d%H%M%S')  # Generate a unique tag based on timestamp
+          echo "Generated tag: $TAG"
+          echo "TAG=$TAG" >> $GITHUB_OUTPUT  # Output the tag so it can be used in other jobs
 
-    # Build the Docker image (Ensure it's tagged correctly)
-    - name: Build Docker image
-      run: |
-        docker build -t weatherapp:${{ steps.Generate_tag_based_on_timestamp.outputs.TAG }} .  # Build the image with the dynamic tag
-        docker images  # List Docker images to check if weatherapp exists
+      # Build the Docker image (Ensure it's tagged correctly)
+      - name: Build Docker image
+        run: |
+          docker build -t weatherapp:${{ steps.Generate_tag_based_on_timestamp.outputs.TAG }} .  # Build the image with the dynamic tag
+          docker images  # List Docker images to check if weatherapp exists
 
-    # Run the container and execute start.sh (runs the tests as well)
-    - name: Run the Docker container and execute start.sh
-      run: |
-        docker run --rm weatherapp:${{ steps.Generate_tag_based_on_timestamp.outputs.TAG }} /bin/bash -c "/app/start.sh"  # Running your full start.sh script
+      # Run the container and execute start.sh (runs the tests as well)
+      - name: Run the Docker container and execute start.sh
+        run: |
+          docker run --rm weatherapp:${{ steps.Generate_tag_based_on_timestamp.outputs.TAG }} /bin/bash -c "/app/start.sh"  # Running your full start.sh script
+
+      - name: Save Docker image to a tarball
+        run: |
+          docker save weatherapp:${{ steps.Generate_tag_based_on_timestamp.outputs.TAG }} -o weatherapp.tar
+          echo "Saved Docker image as weatherapp.tar"
+      
+      - name: Upload Docker image tarball
+        uses: actions/upload-artifact@v2
+        with:
+          name: weatherapp-image
+          path: weatherapp.tar
 
   deploy:
     needs: build_and_test
@@ -44,66 +55,79 @@ jobs:
     if: success()  # Only run if the build_and_test job is successful
 
     steps:
-    - name: Checkout the repository
-      uses: actions/checkout@v2
+      - name: Download Docker image tarball
+        uses: actions/download-artifact@v2
+        with:
+          name: weatherapp-image
 
-    # Set up AWS CLI
-    - name: Set up AWS CLI
-      uses: aws-actions/configure-aws-credentials@v1
-      with:
-        aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
-        aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
-        aws-region: 'ap-southeast-2'  # AWS region for your ECR
+      # Load Docker image from tarball
+      - name: Load Docker image from tarball
+        run: |
+          docker load -i weatherapp.tar
+          echo "Loaded Docker image"
 
-    # Authenticate to AWS ECR
-    - name: Login to Amazon ECR
-      run: |
-        aws ecr get-login-password --region ap-southeast-2 | docker login --username AWS --password-stdin 503561410165.dkr.ecr.ap-southeast-2.amazonaws.com
+      # Checkout the repository (move this after the Docker load step)
+      - name: Checkout the repository
+        uses: actions/checkout@v2
 
-    # Debugging: Check the images before tagging (this will confirm if weatherapp exists)
-    - name: Verify Docker images before tagging
-      run: |
-        docker images  # List Docker images to ensure weatherapp exists
+      # Set up AWS CLI
+      - name: Set up AWS CLI
+        uses: aws-actions/configure-aws-credentials@v1
+        with:
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-region: 'ap-southeast-2'  # AWS region for your ECR
 
-    - name: Verify Docker images before tagging (Deploy Job)
-      run: |
-        docker images
+      # Authenticate to AWS ECR
+      - name: Login to Amazon ECR
+        run: |
+          aws ecr get-login-password --region ap-southeast-2 | docker login --username AWS --password-stdin 503561410165.dkr.ecr.ap-southeast-2.amazonaws.com
 
-    # Tag the Docker image using the timestamp tag (e.g., 20250211233125)
-    - name: Tag Docker image with timestamp
-      run: |
-        docker tag weatherapp:${{ needs.build_and_test.outputs.tag }} 503561410165.dkr.ecr.ap-southeast-2.amazonaws.com/weatherapp:${{ needs.build_and_test.outputs.tag }}
-        echo "Tagged image with: ${{ needs.build_and_test.outputs.tag }}"
+      # Debugging: Check the images before tagging (this will confirm if weatherapp exists)
+      - name: Verify Docker images before tagging
+        run: |
+          docker images  # List Docker images to ensure weatherapp exists
 
-    # Push the Docker image to ECR with the new tag
-    - name: Push Docker image to ECR
-      run: |
-        docker push 503561410165.dkr.ecr.ap-southeast-2.amazonaws.com/weatherapp:${{ needs.build_and_test.outputs.tag }}
-        echo "Pushed image with tag: ${{ needs.build_and_test.outputs.tag }}"
+      # Verify Docker images before tagging (Deploy Job)
+      - name: Verify Docker images before tagging (Deploy Job)
+        run: |
+          docker images
 
-    # Deploy to EC2
-    - name: Deploy to EC2
-      run: |
-        ssh -i /path/to/your/private-key.pem ec2-user@<your-ec2-public-ip> <<EOF
-          docker pull 503561410165.dkr.ecr.ap-southeast-2.amazonaws.com/weatherapp:${{ needs.build_and_test.outputs.tag }}
-          docker stop weatherapp-container || true
-          docker rm weatherapp-container || true
-          docker run -d --name weatherapp-container -p 3000:3000 503561410165.dkr.ecr.ap-southeast-2.amazonaws.com/weatherapp:${{ needs.build_and_test.outputs.tag }}
-        EOF
+      # Tag the Docker image using the timestamp tag (e.g., 20250211233125)
+      - name: Tag Docker image with timestamp
+        run: |
+          docker tag weatherapp:${{ needs.build_and_test.outputs.tag }} 503561410165.dkr.ecr.ap-southeast-2.amazonaws.com/weatherapp:${{ needs.build_and_test.outputs.tag }}
+          echo "Tagged image with: ${{ needs.build_and_test.outputs.tag }}"
+
+      # Push the Docker image to ECR with the new tag
+      - name: Push Docker image to ECR
+        run: |
+          docker push 503561410165.dkr.ecr.ap-southeast-2.amazonaws.com/weatherapp:${{ needs.build_and_test.outputs.tag }}
+          echo "Pushed image with tag: ${{ needs.build_and_test.outputs.tag }}"
+
+      # Deploy to EC2
+      - name: Deploy to EC2
+        run: |
+          ssh -i /path/to/your/private-key.pem ec2-user@<your-ec2-public-ip> <<EOF
+            docker pull 503561410165.dkr.ecr.ap-southeast-2.amazonaws.com/weatherapp:${{ needs.build_and_test.outputs.tag }}
+            docker stop weatherapp-container || true
+            docker rm weatherapp-container || true
+            docker run -d --name weatherapp-container -p 3000:3000 503561410165.dkr.ecr.ap-southeast-2.amazonaws.com/weatherapp:${{ needs.build_and_test.outputs.tag }}
+          EOF
 
   notify_on_failure:
     if: failure()  # This job runs only if the previous jobs fail
     runs-on: ubuntu-latest
 
     steps:
-    - name: Send failure email notification
-      uses: dawidd6/action-send-mail@v3
-      with:
-        smtp-server: smtp.gmail.com
-        smtp-port: 587
-        smtp-username: ${{ secrets.GMAIL_USERNAME }}
-        smtp-password: ${{ secrets.GMAIL_PASSWORD }}
-        from: ${{ secrets.GMAIL_USERNAME }}
-        to: your-email@example.com
-        subject: "Build Failed: Test Run for Build ID ${{ github.run_id }}"
-        body: "The build and deploy for Build ID ${{ github.run_id }} have failed. Please check the logs for more details."
+      - name: Send failure email notification
+        uses: dawidd6/action-send-mail@v3
+        with:
+          smtp-server: smtp.gmail.com
+          smtp-port: 587
+          smtp-username: ${{ secrets.GMAIL_USERNAME }}
+          smtp-password: ${{ secrets.GMAIL_PASSWORD }}
+          from: ${{ secrets.GMAIL_USERNAME }}
+          to: your-email@example.com
+          subject: "Build Failed: Test Run for Build ID ${{ github.run_id }}"
+          body: "The build and deploy for Build ID ${{ github.run_id }} have failed. Please check the logs for more details."
