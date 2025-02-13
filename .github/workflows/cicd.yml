@@ -20,13 +20,13 @@ jobs:
     # Build the Docker image (Ensure it's named correctly)
     - name: Build Docker image
       run: |
-        docker build -t weatherapp .  # Build the image and tag it as weatherapp
+        docker build -t weatherapp:${{ env.TAG }} .  # Build the image with the dynamic tag
         docker images  # Debugging: List the built Docker images to check if weatherapp exists
 
     # Run the container and execute start.sh (runs the tests as well)
     - name: Run the Docker container and execute start.sh
       run: |
-        docker run --rm weatherapp /bin/bash -c "/app/start.sh"  # Running your full start.sh script
+        docker run --rm weatherapp:${{ env.TAG }} /bin/bash -c "/app/start.sh"  # Running your full start.sh script
 
   deploy:
     needs: build_and_test
@@ -65,7 +65,7 @@ jobs:
     # Tag the Docker image using the timestamp tag (e.g., 20250211233125)
     - name: Tag Docker image with timestamp
       run: |
-        docker tag weatherapp:latest 503561410165.dkr.ecr.ap-southeast-2.amazonaws.com/weatherapp:${{ env.TAG }}
+        docker tag weatherapp:${{ env.TAG }} 503561410165.dkr.ecr.ap-southeast-2.amazonaws.com/weatherapp:${{ env.TAG }}
         echo "Tagged image with: ${{ env.TAG }}"
 
     # Push the Docker image to ECR with the new tag
@@ -84,6 +84,7 @@ jobs:
           docker run -d --name weatherapp-container -p 3000:3000 503561410165.dkr.ecr.ap-southeast-2.amazonaws.com/weatherapp:${{ env.TAG }}
         EOF
 
+      
   notify_on_failure:
     if: failure()  # This job runs only if the previous jobs fail
     runs-on: ubuntu-latest
@@ -100,5 +101,3 @@ jobs:
         to: your-email@example.com
         subject: "Build Failed: Test Run for Build ID ${{ github.run_id }}"
         body: "The Cypress tests for Build ID ${{ github.run_id }} have failed. Please check the logs for more details."
-
-        
