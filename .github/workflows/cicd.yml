@@ -44,7 +44,7 @@ jobs:
           echo "Saved Docker image as weatherapp.tar"
       
       - name: Upload Docker image tarball
-        uses: github/upload-artifact@v3  # Updated action
+        uses: actions/upload-artifact@v3  # Correct version
         with:
           name: weatherapp-image
           path: weatherapp.tar
