@@ -13,38 +13,19 @@ jobs:
     - name: Checkout the repository
       uses: actions/checkout@v2
 
-    # Set up Docker
-    - name: Set up Docker
-      uses: docker/setup-buildx-action@v2
+    # Set up Node.js
+    - name: Set up Node.js
+      uses: actions/setup-node@v2
+      with:
+        node-version: '20'  # Use the version of Node.js you're using in your Dockerfile
 
-    # Build the Docker image (ensure it's named correctly)
-    - name: Build Docker image
-      run: |
-        docker build -t weatherapp .  # Build the image and tag it as weatherapp
+    # Install dependencies
+    - name: Install dependencies
+      run: npm install --legacy-peer-deps
 
-    # Generate a unique tag based on timestamp
-    - name: Generate a unique tag based on timestamp
-      run: |
-        TAG=$(date +'%Y%m%d%H%M%S')  # Generate a unique tag based on timestamp
-        echo "Generated tag: $TAG"
-        echo "TAG=$TAG" >> $GITHUB_ENV  # Store the tag for later use in the workflow
-        export TAG=$TAG  # Export the tag so it can be accessed in subsequent steps
-
-    # Debugging: Output the value of the generated tag
-    - name: Verify the generated TAG
-      run: |
-        echo "The tag being used is: ${{ env.TAG }}"
-
-    # Tag the Docker image with the timestamp (weatherapp:timestamp)
-    - name: Tag Docker image with timestamp
-      run: |
-        docker tag weatherapp 503561410165.dkr.ecr.ap-southeast-2.amazonaws.com/weatherapp:${{ env.TAG }}
-        echo "Tagged image with: ${{ env.TAG }}"
-
-    # Run the container and execute start.sh (runs the tests as well)
-    - name: Run the Docker container and execute start.sh
-      run: |
-        docker run --rm weatherapp /bin/bash -c "/app/start.sh"  # Running your full start.sh script
+    # Run the Cypress tests
+    - name: Run Cypress tests
+      run: npm run cypress:run  # Make sure you have this script in package.json
 
   deploy:
     needs: build_and_test
@@ -55,7 +36,10 @@ jobs:
     - name: Checkout the repository
       uses: actions/checkout@v2
 
-    # Set up AWS CLI
+    # Set up Docker and AWS CLI
+    - name: Set up Docker
+      uses: docker/setup-buildx-action@v2
+
     - name: Set up AWS CLI
       uses: aws-actions/configure-aws-credentials@v1
       with:
@@ -63,21 +47,37 @@ jobs:
         aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
         aws-region: 'ap-southeast-2'  # AWS region for your ECR
 
+    # Generate a unique tag based on timestamp
+    - name: Generate a unique tag based on timestamp 
+      run: |
+        TAG=$(date +'%Y%m%d%H%M%S')  # Generate a unique tag based on timestamp
+        echo "Generated tag: $TAG"
+        echo "TAG=$TAG" >> $GITHUB_ENV  # Store the tag for later use in the workflow
+        export TAG=$TAG  # Export the tag so it can be accessed in subsequent steps
+
+    # Build the Docker image
+    - name: Build Docker image
+      run: |
+        docker build -t weatherapp .
+
     # Authenticate to AWS ECR
     - name: Login to Amazon ECR
       run: |
         aws ecr get-login-password --region ap-southeast-2 | docker login --username AWS --password-stdin 503561410165.dkr.ecr.ap-southeast-2.amazonaws.com
 
-    # Debugging: Output the value of the TAG again
-    - name: Verify the tag during deployment
+    # Tag the Docker image with the generated TAG
+    - name: Tag Docker image
       run: |
-        echo "The tag being used for deployment is: ${{ env.TAG }}"
+        docker tag weatherapp:latest 503561410165.dkr.ecr.ap-southeast-2.amazonaws.com/weatherapp:${{ env.TAG }}
+        echo "Tagged image with: ${{ env.TAG }}"
 
-    # Push the Docker image to ECR with the timestamp-based tag
+    # Push Docker image to ECR
     - name: Push Docker image to ECR
       run: |
         echo "Pushing Docker image with tag: ${{ env.TAG }}"
         docker push 503561410165.dkr.ecr.ap-southeast-2.amazonaws.com/weatherapp:${{ env.TAG }}
+        # Verify the tag being used
+        echo "The tag being used is: ${{ env.TAG }}"
 
     # Deploy to EC2
     - name: Deploy to EC2
@@ -86,4 +86,22 @@ jobs:
           docker pull 503561410165.dkr.ecr.ap-southeast-2.amazonaws.com/weatherapp:${{ env.TAG }}
           docker stop weatherapp-container || true
           docker rm weatherapp-container || true
-          docker run -d --name weatherapp-container -
+          docker run -d --name weatherapp-container -p 3000:3000 503561410165.dkr.ecr.ap-southeast-2.amazonaws.com/weatherapp:${{ env.TAG }}
+        EOF
+
+  notify_on_failure:
+    if: failure()  # This job runs only if the previous jobs fail
+    runs-on: ubuntu-latest
+
+    steps:
+    - name: Send failure email notification
+      uses: dawidd6/action-send-mail@v3
+      with:
+        smtp-server: smtp.gmail.com
+        smtp-port: 587
+        smtp-username: ${{ secrets.GMAIL_USERNAME }}
+        smtp-password: ${{ secrets.GMAIL_PASSWORD }}
+        from: ${{ secrets.GMAIL_USERNAME }}
+        to: your-email@example.com
+        subject: "Build Failed: Test Run for Build ID ${{ github.run_id }}"
+        body: "The Cypress tests for Build ID ${{ github.run_id }} have failed. Please check the logs for more details."
