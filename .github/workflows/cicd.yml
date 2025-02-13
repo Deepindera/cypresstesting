@@ -8,7 +8,9 @@ on:
 jobs:
   build_and_test:
     runs-on: ubuntu-latest
-    
+    outputs:
+      tag: ${{ steps.Generate_tag_based_on_timestamp.outputs.TAG }}  # Output the generated tag for later use
+
     steps:
     - name: Checkout the repository
       uses: actions/checkout@v2
@@ -18,22 +20,23 @@ jobs:
       uses: docker/setup-buildx-action@v2
 
     # Generate a unique tag based on timestamp for the new image version
-    - name: Generate a unique tag based on timestamp
+    - name: Generate tag based on timestamp
+      id: Generate_tag_based_on_timestamp
       run: |
         TAG=$(date +'%Y%m%d%H%M%S')  # Generate a unique tag based on timestamp
         echo "Generated tag: $TAG"
-        echo "TAG=$TAG" >> $GITHUB_ENV  # Store the tag for later use in the workflow
+        echo "TAG=$TAG" >> $GITHUB_OUTPUT  # Output the tag so it can be used in other jobs
 
     # Build the Docker image (Ensure it's tagged correctly)
     - name: Build Docker image
       run: |
-        docker build -t weatherapp:${{ env.TAG }} .  # Build the image with the dynamic tag
+        docker build -t weatherapp:${{ steps.Generate_tag_based_on_timestamp.outputs.TAG }} .  # Build the image with the dynamic tag
         docker images  # List Docker images to check if weatherapp exists
 
     # Run the container and execute start.sh (runs the tests as well)
     - name: Run the Docker container and execute start.sh
       run: |
-        docker run --rm weatherapp:${{ env.TAG }} /bin/bash -c "/app/start.sh"  # Running your full start.sh script
+        docker run --rm weatherapp:${{ steps.Generate_tag_based_on_timestamp.outputs.TAG }} /bin/bash -c "/app/start.sh"  # Running your full start.sh script
 
   deploy:
     needs: build_and_test
@@ -65,30 +68,29 @@ jobs:
     # Tag the Docker image using the timestamp tag (e.g., 20250211233125)
     - name: Tag Docker image with timestamp
       run: |
-        docker tag weatherapp:${{ env.TAG }} 503561410165.dkr.ecr.ap-southeast-2.amazonaws.com/weatherapp:${{ env.TAG }}
-        echo "Tagged image with: ${{ env.TAG }}"
+        docker tag weatherapp:${{ needs.build_and_test.outputs.tag }} 503561410165.dkr.ecr.ap-southeast-2.amazonaws.com/weatherapp:${{ needs.build_and_test.outputs.tag }}
+        echo "Tagged image with: ${{ needs.build_and_test.outputs.tag }}"
 
     # Push the Docker image to ECR with the new tag
     - name: Push Docker image to ECR
       run: |
-        docker push 503561410165.dkr.ecr.ap-southeast-2.amazonaws.com/weatherapp:${{ env.TAG }}
-        echo "Pushed image with tag: ${{ env.TAG }}"
+        docker push 503561410165.dkr.ecr.ap-southeast-2.amazonaws.com/weatherapp:${{ needs.build_and_test.outputs.tag }}
+        echo "Pushed image with tag: ${{ needs.build_and_test.outputs.tag }}"
 
     # Deploy to EC2
     - name: Deploy to EC2
       run: |
         ssh -i /path/to/your/private-key.pem ec2-user@<your-ec2-public-ip> <<EOF
-          docker pull 503561410165.dkr.ecr.ap-southeast-2.amazonaws.com/weatherapp:${{ env.TAG }}
+          docker pull 503561410165.dkr.ecr.ap-southeast-2.amazonaws.com/weatherapp:${{ needs.build_and_test.outputs.tag }}
           docker stop weatherapp-container || true
           docker rm weatherapp-container || true
-          docker run -d --name weatherapp-container -p 3000:3000 503561410165.dkr.ecr.ap-southeast-2.amazonaws.com/weatherapp:${{ env.TAG }}
+          docker run -d --name weatherapp-container -p 3000:3000 503561410165.dkr.ecr.ap-southeast-2.amazonaws.com/weatherapp:${{ needs.build_and_test.outputs.tag }}
         EOF
 
   notify_on_failure:
     if: failure()  # This job runs only if the previous jobs fail
     runs-on: ubuntu-latest
 
-    
     steps:
     - name: Send failure email notification
       uses: dawidd6/action-send-mail@v3
@@ -100,4 +102,4 @@ jobs:
         from: ${{ secrets.GMAIL_USERNAME }}
         to: your-email@example.com
         subject: "Build Failed: Test Run for Build ID ${{ github.run_id }}"
-        body: "The Cypress tests for Build ID ${{ github.run_id }} have failed. Please check the logs for more details."
+        body: "The build and deploy for Build ID ${{ github.run_id }} have failed. Please check the logs for more details."
