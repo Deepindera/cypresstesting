@@ -28,6 +28,7 @@ jobs:
         TAG=$(date +'%Y%m%d%H%M%S')  # Generate a unique tag based on timestamp
         echo "Generated tag: $TAG"
         echo "TAG=$TAG" >> $GITHUB_ENV  # Store the tag for later use in the workflow
+        export TAG=$TAG  # Export the tag so it can be accessed in subsequent steps
 
     # Debugging: Output the value of the generated tag
     - name: Verify the generated TAG
@@ -85,22 +86,4 @@ jobs:
           docker pull 503561410165.dkr.ecr.ap-southeast-2.amazonaws.com/weatherapp:${{ env.TAG }}
           docker stop weatherapp-container || true
           docker rm weatherapp-container || true
-          docker run -d --name weatherapp-container -p 3000:3000 503561410165.dkr.ecr.ap-southeast-2.amazonaws.com/weatherapp:${{ env.TAG }}
-        EOF
-
-  notify_on_failure:
-    if: failure()  # This job runs only if the previous jobs fail
-    runs-on: ubuntu-latest
-
-    steps:
-    - name: Send failure email notification
-      uses: dawidd6/action-send-mail@v3
-      with:
-        smtp-server: smtp.gmail.com
-        smtp-port: 587
-        smtp-username: ${{ secrets.GMAIL_USERNAME }}
-        smtp-password: ${{ secrets.GMAIL_PASSWORD }}
-        from: ${{ secrets.GMAIL_USERNAME }}
-        to: your-email@example.com
-        subject: "Build Failed: Test Run for Build ID ${{ github.run_id }}"
-        body: "The Cypress tests for Build ID ${{ github.run_id }} have failed. Please check the logs for more details."
+          docker run -d --name weatherapp-container -
