@@ -65,6 +65,10 @@ jobs:
       run: |
         docker images  # List Docker images to ensure weatherapp exists
 
+    - name: Verify Docker images before tagging (Deploy Job)
+      run: |
+        docker images
+
     # Tag the Docker image using the timestamp tag (e.g., 20250211233125)
     - name: Tag Docker image with timestamp
       run: |
