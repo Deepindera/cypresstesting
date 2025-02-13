@@ -60,6 +60,8 @@ jobs:
       run: |
         docker build -t weatherapp .
 
+        
+
     # Authenticate to AWS ECR
     - name: Login to Amazon ECR
       run: |
