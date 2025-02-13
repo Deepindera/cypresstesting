@@ -65,7 +65,7 @@ jobs:
     # Tag the Docker image using the timestamp tag (e.g., 20250211233125)
     - name: Tag Docker image with timestamp
       run: |
-        docker tag weatherapp:latest 503561410165.dkr.ecr.ap-southeast-2.amazonaws.com/weatherapp:${{ env.TAG }}
+        docker tag weatherapp 503561410165.dkr.ecr.ap-southeast-2.amazonaws.com/weatherapp:${{ env.TAG }}
         echo "Tagged image with: ${{ env.TAG }}"
 
     # Push the Docker image to ECR with the new tag
@@ -101,4 +101,3 @@ jobs:
         subject: "Build Failed: Test Run for Build ID ${{ github.run_id }}"
         body: "The Cypress tests for Build ID ${{ github.run_id }} have failed. Please check the logs for more details."
 
-        
