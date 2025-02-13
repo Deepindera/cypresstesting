@@ -17,11 +17,23 @@ jobs:
     - name: Set up Docker
       uses: docker/setup-buildx-action@v2
 
-    # Build the Docker image (Ensure it's named correctly)
+    # Build the Docker image (ensure it's named correctly)
     - name: Build Docker image
       run: |
         docker build -t weatherapp .  # Build the image and tag it as weatherapp
-        docker images  # Debugging: List the built Docker images to check if weatherapp exists
+
+    # Generate a unique tag based on timestamp
+    - name: Generate a unique tag based on timestamp
+      run: |
+        TAG=$(date +'%Y%m%d%H%M%S')  # Generate a unique tag based on timestamp
+        echo "Generated tag: $TAG"
+        echo "TAG=$TAG" >> $GITHUB_ENV  # Store the tag for later use in the workflow
+
+    # Tag the Docker image with the timestamp (weatherapp:timestamp)
+    - name: Tag Docker image with timestamp
+      run: |
+        docker tag weatherapp 503561410165.dkr.ecr.ap-southeast-2.amazonaws.com/weatherapp:${{ env.TAG }}
+        echo "Tagged image with: ${{ env.TAG }}"
 
     # Run the container and execute start.sh (runs the tests as well)
     - name: Run the Docker container and execute start.sh
@@ -50,25 +62,7 @@ jobs:
       run: |
         aws ecr get-login-password --region ap-southeast-2 | docker login --username AWS --password-stdin 503561410165.dkr.ecr.ap-southeast-2.amazonaws.com
 
-    # Generate a unique tag based on timestamp for the new image version
-    - name: Generate a unique tag based on timestamp
-      run: |
-        TAG=$(date +'%Y%m%d%H%M%S')  # Generate a unique tag based on timestamp
-        echo "Generated tag: $TAG"
-        echo "TAG=$TAG" >> $GITHUB_ENV  # Store the tag for later use in the workflow
-
-    # Debugging: Check the images before tagging (this will confirm if weatherapp exists)
-    - name: Verify Docker images before tagging
-      run: |
-        docker images  # List Docker images to ensure weatherapp exists
-
-    # Tag the Docker image using the timestamp tag (e.g., 20250211233125)
-    - name: Tag Docker image with timestamp
-      run: |
-        docker tag weatherapp 503561410165.dkr.ecr.ap-southeast-2.amazonaws.com/weatherapp:${{ env.TAG }}
-        echo "Tagged image with: ${{ env.TAG }}"
-
-    # Push the Docker image to ECR with the new tag
+    # Push the Docker image to ECR with the timestamp-based tag
     - name: Push Docker image to ECR
       run: |
         docker push 503561410165.dkr.ecr.ap-southeast-2.amazonaws.com/weatherapp:${{ env.TAG }}
@@ -100,4 +94,3 @@ jobs:
         to: your-email@example.com
         subject: "Build Failed: Test Run for Build ID ${{ github.run_id }}"
         body: "The Cypress tests for Build ID ${{ github.run_id }} have failed. Please check the logs for more details."
-
