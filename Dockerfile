@@ -12,6 +12,9 @@ RUN npm install --legacy-peer-deps
 # Copy application source files
 COPY . .
 
+# Debugging: List files to ensure app directory exists
+RUN ls -R /app
+
 # Run build
 RUN npm run build
 
