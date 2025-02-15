@@ -56,7 +56,7 @@ jobs:
 
     steps:
       - name: Download Docker image tarball
-        uses: actions/download-artifact@v2
+        uses: actions/download-artifact@v4
         with:
           name: weatherapp-image
 
@@ -115,6 +115,7 @@ jobs:
             docker run -d --name weatherapp-container -p 3000:3000 503561410165.dkr.ecr.ap-southeast-2.amazonaws.com/weatherapp:${{ needs.build_and_test.outputs.tag }}
           EOF
 
+          
   notify_on_failure:
     if: failure()  # This job runs only if the previous jobs fail
     runs-on: ubuntu-latest
