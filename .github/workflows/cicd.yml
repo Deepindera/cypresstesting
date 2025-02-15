@@ -124,7 +124,7 @@ jobs:
             # Remove the old container if it exists
             docker rm weatherapp-container || true && 
             # Run the new container
-            docker run -d --name weatherapp-container -p 3000:3000 503561410165.dkr.ecr.ap-southeast-2.amazonaws.com/weatherapp:${{ needs.build_and_test.outputs.tag }}"
+            docker run --platform linux/arm64 -d --name weatherapp-container -p 3000:3000 503561410165.dkr.ecr.ap-southeast-2.amazonaws.com/weatherapp:${{ needs.build_and_test.outputs.tag }}"
           "
 
   notify_on_failure:
