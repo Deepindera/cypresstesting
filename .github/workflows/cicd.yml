@@ -111,13 +111,22 @@ jobs:
           echo "${{ secrets.EC2_SSH_PRIVATE_KEY }}" | base64 --decode > private-key.pem
           chmod 600 private-key.pem  # Set appropriate permissions for the private key file
 
-      # Deploy to EC2
+      # Deploy to EC2 with your SSH command
       - name: Deploy to EC2
         run: |
-         # SSH into EC2 and deploy the Docker container in one line
-         ssh -o StrictHostKeyChecking=no -i private-key.pem ec2-user@${{ secrets.EC2_PUBLIC_IP }} "docker pull 503561410165.dkr.ecr.ap-southeast-2.amazonaws.com/weatherapp:${{ needs.build_and_test.outputs.tag }} && docker stop weatherapp-container || true && docker rm weatherapp-container || true && docker run -d --name weatherapp-container -p 3000:3000 503561410165.dkr.ecr.ap-southeast-2.amazonaws.com/weatherapp:${{ needs.build_and_test.outputs.tag }}"
+          ssh -o StrictHostKeyChecking=no -i private-key.pem ec2-user@${{ secrets.EC2_PUBLIC_IP }} "
+            # Authenticate Docker with AWS ECR
+            aws ecr get-login-password --region ap-southeast-2 | docker login --username AWS --password-stdin 503561410165.dkr.ecr.ap-southeast-2.amazonaws.com && 
+            # Pull the Docker image
+            docker pull 503561410165.dkr.ecr.ap-southeast-2.amazonaws.com/weatherapp:${{ needs.build_and_test.outputs.tag }} && 
+            # Stop the existing container if it exists
+            docker stop weatherapp-container || true && 
+            # Remove the old container if it exists
+            docker rm weatherapp-container || true && 
+            # Run the new container
+            docker run -d --name weatherapp-container -p 3000:3000 503561410165.dkr.ecr.ap-southeast-2.amazonaws.com/weatherapp:${{ needs.build_and_test.outputs.tag }}"
+          "
 
-          
   notify_on_failure:
     if: failure()  # This job runs only if the previous jobs fail
     runs-on: ubuntu-latest
