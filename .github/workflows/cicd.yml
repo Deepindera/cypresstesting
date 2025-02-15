@@ -88,11 +88,6 @@ jobs:
         run: |
           docker images  # List Docker images to ensure weatherapp exists
 
-      # Verify Docker images before tagging (Deploy Job)
-      - name: Verify Docker images before tagging (Deploy Job)
-        run: |
-          docker images
-
       # Tag the Docker image using the timestamp tag (e.g., 20250211233125)
       - name: Tag Docker image with timestamp
         run: |
@@ -110,6 +105,19 @@ jobs:
         run: |
           echo "${{ secrets.EC2_SSH_PRIVATE_KEY }}" | base64 --decode > private-key.pem
           chmod 600 private-key.pem  # Set appropriate permissions for the private key file
+
+
+      - name: Clean up old Docker containers, images, and volumes
+        run: |
+         # Stop and remove all containers
+         docker stop $(docker ps -a -q) || true
+         docker rm $(docker ps -a -q) || true
+
+         # Remove all unused Docker images
+         docker image prune -af
+
+         # Remove all unused volumes
+         docker volume prune -f
 
       # Deploy to EC2 with your SSH command
       - name: Deploy to EC2
