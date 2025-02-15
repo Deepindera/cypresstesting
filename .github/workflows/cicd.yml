@@ -106,18 +106,26 @@ jobs:
           echo "${{ secrets.EC2_SSH_PRIVATE_KEY }}" | base64 --decode > private-key.pem
           chmod 600 private-key.pem  # Set appropriate permissions for the private key file
 
-
       - name: Clean up old Docker containers, images, and volumes
         run: |
-         # Stop and remove all containers
-         docker stop $(docker ps -a -q) || true
-         docker rm $(docker ps -a -q) || true
+          # Stop and remove all containers (if they exist)
+          docker ps -q | xargs -r docker stop || true
+          docker ps -a -q | xargs -r docker rm || true
 
-         # Remove all unused Docker images
-         docker image prune -af
+          # Remove all unused Docker images
+          docker image prune -af
 
-         # Remove all unused volumes
-         docker volume prune -f
+          # Remove all unused volumes
+          docker volume prune -f
+
+          # Remove all unused networks
+          docker network prune -f
+
+          # Prune the entire Docker system to remove everything not in use
+          docker system prune -af
+
+          # Check disk usage to ensure space has been freed
+          df -h
 
       # Deploy to EC2 with your SSH command
       - name: Deploy to EC2
