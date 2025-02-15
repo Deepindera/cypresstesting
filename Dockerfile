@@ -1,5 +1,8 @@
+# Define the platform argument
+ARG PLATFORM=linux/arm64
+
 # Stage 1: Build the Next.js app and install Cypress dependencies
-FROM node:20 AS build
+FROM --platform=$PLATFORM node:20 AS build
 
 WORKDIR /app
 
@@ -19,7 +22,7 @@ RUN ls -R /app
 RUN npm run build
 
 # Stage 2: Set up runtime environment and install necessary runtime dependencies
-FROM node:20 AS runtime
+FROM --platform=$PLATFORM node:20 AS runtime
 
 WORKDIR /app
 
