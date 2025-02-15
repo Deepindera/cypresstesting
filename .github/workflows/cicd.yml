@@ -23,6 +23,12 @@ jobs:
         run: |
           docker buildx ls
 
+      # Set the builder context for multi-platform support (linux/arm64 and linux/amd64)
+      - name: Set Docker Buildx Builder
+        run: |
+          docker buildx create --use --platform linux/arm64,linux/amd64
+          docker buildx ls  # Verify the new builder is active
+
       # Generate a unique tag based on timestamp for the new image version
       - name: Generate tag based on timestamp
         id: Generate_tag_based_on_timestamp
