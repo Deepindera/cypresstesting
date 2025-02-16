@@ -40,7 +40,7 @@ jobs:
       # Build the Docker image (Ensure it's tagged correctly)
       - name: Build Docker image
         run: |
-          docker buildx build -t weatherapp:${{ steps.Generate_tag_based_on_timestamp.outputs.TAG }} .  # Build the image with the dynamic tag
+          docker buildx build --load -t  weatherapp:${{ steps.Generate_tag_based_on_timestamp.outputs.TAG }} .  # Build the image with the dynamic tag
           docker images  # List Docker images to check if weatherapp exists
 
       # Run the container and execute start.sh (runs the tests as well)
