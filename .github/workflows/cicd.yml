@@ -26,7 +26,7 @@ jobs:
       # Set the builder context for multi-platform support (linux/arm64 and linux/amd64)
       - name: Set Docker Buildx Builder
         run: |
-          docker buildx create --use --platform linux/arm64,linux/amd64
+          docker buildx create --use 
           docker buildx ls  # Verify the new builder is active
 
       # Generate a unique tag based on timestamp for the new image version
@@ -40,7 +40,7 @@ jobs:
       # Build the Docker image (Ensure it's tagged correctly)
       - name: Build Docker image
         run: |
-          docker buildx build --platform linux/arm64 -t weatherapp:${{ steps.Generate_tag_based_on_timestamp.outputs.TAG }} .  # Build the image with the dynamic tag
+          docker buildx build -t weatherapp:${{ steps.Generate_tag_based_on_timestamp.outputs.TAG }} .  # Build the image with the dynamic tag
           docker images  # List Docker images to check if weatherapp exists
 
       # Run the container and execute start.sh (runs the tests as well)
@@ -150,7 +150,7 @@ jobs:
             # Remove the old container if it exists
             docker rm weatherapp-container || true && 
             # Run the new container
-            docker run --platform linux/arm64 -d --name weatherapp-container -p 3000:3000 503561410165.dkr.ecr.ap-southeast-2.amazonaws.com/weatherapp:${{ needs.build_and_test.outputs.tag }}"
+            docker run -d --name weatherapp-container -p 3000:3000 503561410165.dkr.ecr.ap-southeast-2.amazonaws.com/weatherapp:${{ needs.build_and_test.outputs.tag }}"
           "
 
   notify_on_failure:
