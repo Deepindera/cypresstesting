@@ -41,19 +41,26 @@ else
   exit 1
 fi
 
-# Step 5: Run Cypress e2e tests with the correct configuration path
-echo "Running Cypress tests..."
-npx cypress run --headless --config-file /app/cypress.config.ts
+# Step 5: Run Cypress e2e tests only if STAY_ALIVE is false (indicating it's the build stage)
+if [ "$STAY_ALIVE" == "false" ]; then
+  echo "Running Cypress tests during build stage..."
 
-# Check if Cypress tests passed
-if [ $? -eq 0 ]; then
-  echo "Cypress tests passed!"
-  echo "Tests passed and finished. Keeping the container alive..."
-  sleep infinity  # Keeps the container running indefinitely if tests pass
+  npx cypress run --headless --config-file /app/cypress.config.ts
+
+  # Check if Cypress tests passed
+  if [ $? -eq 0 ]; then
+    echo "Cypress tests passed!"
+    exit 0  # Exit the container after tests pass
+  else
+    echo "Cypress tests failed. Killing the container"
+    exit 1  # Exits the container if tests fail
+  fi
 else
-  echo "Cypress tests failed. Killing the container"
-  exit 1  # Exits the container if tests fail
+  # Step 6: Keep the container alive if STAY_ALIVE is true (deployment stage)
+  echo "STAY_ALIVE is TRUE, so keeping container alive..."
+  sleep infinity # Keeps the container alive indefinitely
 fi
-# Kill the Next.js app after Cypress tests finish
+
+# Kill the Next.js app after Cypress tests finish (only if necessary)
 #echo "Killing the Next.js app..."
 #kill $APP_PID
