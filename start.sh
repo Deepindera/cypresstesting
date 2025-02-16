@@ -45,6 +45,15 @@ fi
 echo "Running Cypress tests..."
 npx cypress run --headless --config-file /app/cypress.config.ts
 
+# Check if Cypress tests passed
+if [ $? -eq 0 ]; then
+  echo "Cypress tests passed!"
+  echo "Tests passed and finished. Keeping the container alive..."
+  sleep infinity  # Keeps the container running indefinitely if tests pass
+else
+  echo "Cypress tests failed. Killing the container"
+  exit 1  # Exits the container if tests fail
+fi
 # Kill the Next.js app after Cypress tests finish
 #echo "Killing the Next.js app..."
 #kill $APP_PID
