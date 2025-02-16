@@ -87,8 +87,8 @@ jobs:
           echo "Loaded Docker image"
 
       # Step 13: Checkout the repository (move this after the Docker load step)
-      #- name: "Step 13: Checkout the repository"
-      #  uses: actions/checkout@v2
+      - name: "Step 13: Checkout the repository"
+        uses: actions/checkout@v2
 
       # Step 14: Set up AWS CLI
       - name: "Step 14: Set up AWS CLI"
